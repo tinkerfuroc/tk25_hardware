@@ -1304,7 +1304,6 @@ void constantHandle() {
 // NEW ADDED CODE
 // Print current positions of all servos
 void RoArmM2_printAllServoPositions() {
-
   // UP = 1; DOWN = 2 
   int Y = st.ReadPos(1) + 2047;
   int X = st.ReadPos(2) - 2047;
@@ -1312,8 +1311,21 @@ void RoArmM2_printAllServoPositions() {
   Y = 360 - (int)round(map(Y, 0, 4095, 0, 360));
   X = (int)round(map(X, 0, 4095, 0, 360));
 
-  Serial.print("Y: ");
-  Serial.println(Y);
-  Serial.print("X: ");
-  Serial.println(X);
+  // Serial.print("{\"X\": ");
+  // Serial.print(X);
+  // Serial.print(", \"Y\": ");
+  // Serial.print(Y);
+  // Serial.println("}\n");
+
+  // Create JSON object
+  StaticJsonDocument<200> doc;
+  doc["X"] = X;
+  doc["Y"] = Y;
+
+  // Serialize JSON to string
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  // Send through UART
+  Serial.println(jsonString);
 }
