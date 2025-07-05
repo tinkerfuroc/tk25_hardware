@@ -77,11 +77,13 @@ void jsonCmdReceiveHandler(){
 												jsonCmdReceive["IO4"],
 												jsonCmdReceive["IO5"]);break;
 	case CMD_GIMBAL_CTRL_SIMPLE:
+												// 直接执行控制，不启用高频任务
 												gimbalCtrlSimple(
 												jsonCmdReceive["X"],
 												jsonCmdReceive["Y"],
 												jsonCmdReceive["SPD"],
-												jsonCmdReceive["ACC"]);break;
+												jsonCmdReceive["ACC"]);
+												break;
 	case CMD_GIMBAL_CTRL_MOVE:
 												gimbalCtrlMove(
 												jsonCmdReceive["X"],
@@ -89,7 +91,8 @@ void jsonCmdReceiveHandler(){
 												jsonCmdReceive["SX"],
 												jsonCmdReceive["SY"]);break;
 	case CMD_GIMBAL_CTRL_STOP:
-												gimbalCtrlStop();break;
+												gimbalCtrlStop();
+												break;
 	case CMD_HEART_BEAT_SET:
 												changeHeartBeatDelay(
 												jsonCmdReceive["cmd"]);break;
