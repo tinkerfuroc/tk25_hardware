@@ -15,8 +15,8 @@ class GimbalController:
         self.port = port
         self.baudrate = baudrate
         self.serial_conn = None
-        self.frequency = 5  # 5Hz
-        self.interval = 1.0 / self.frequency  # 0.2秒
+        self.frequency = 1  # 改为1Hz
+        self.interval = 1.0 / self.frequency  # 1.0秒
         
         # 云台控制参数
         self.current_x = 0
@@ -180,7 +180,7 @@ class GimbalController:
     
     def run_continuous(self):
         """持续运行模式，发送当前目标位置"""
-        print(f"\n=== 持续运行模式 (5Hz) ===")
+        print(f"\n=== 持续运行模式 ({self.frequency}Hz) ===")
         print("发送目标位置指令，按 Ctrl+C 停止")
         
         try:
@@ -194,7 +194,7 @@ class GimbalController:
         """主菜单"""
         while True:
             print("\n" + "="*50)
-            print("云台控制器 - 5Hz控制频率")
+            print(f"云台控制器 - {self.frequency}Hz控制频率")
             print("="*50)
             print("1. 手动控制")
             print("2. 圆形运动")
@@ -236,11 +236,12 @@ class GimbalController:
             print("="*30)
             print(f"1. 速度: {self.speed}")
             print(f"2. 加速度: {self.acceleration}")
-            print(f"3. 串口: {self.port}")
-            print(f"4. 波特率: {self.baudrate}")
+            print(f"3. 发送频率: {self.frequency}Hz")
+            print(f"4. 串口: {self.port}")
+            print(f"5. 波特率: {self.baudrate}")
             print("0. 返回主菜单")
             
-            choice = input("请选择要修改的参数 (0-4): ").strip()
+            choice = input("请选择要修改的参数 (0-5): ").strip()
             
             if choice == '1':
                 try:
@@ -255,12 +256,23 @@ class GimbalController:
                 except ValueError:
                     print("输入无效")
             elif choice == '3':
+                try:
+                    new_frequency = float(input(f"输入新的发送频率 (当前: {self.frequency}Hz): "))
+                    if new_frequency > 0:
+                        self.frequency = new_frequency
+                        self.interval = 1.0 / self.frequency
+                        print(f"发送频率已设置为: {self.frequency}Hz (间隔: {self.interval:.3f}秒)")
+                    else:
+                        print("频率必须大于0")
+                except ValueError:
+                    print("输入无效")
+            elif choice == '4':
                 new_port = input(f"输入新的串口 (当前: {self.port}): ").strip()
                 if new_port:
                     self.port = new_port
                     print(f"串口已设置为: {self.port}")
                     print("请重新连接串口")
-            elif choice == '4':
+            elif choice == '5':
                 try:
                     self.baudrate = int(input(f"输入新的波特率 (当前: {self.baudrate}): "))
                     print(f"波特率已设置为: {self.baudrate}")

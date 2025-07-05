@@ -77,12 +77,13 @@ void jsonCmdReceiveHandler(){
 												jsonCmdReceive["IO4"],
 												jsonCmdReceive["IO5"]);break;
 	case CMD_GIMBAL_CTRL_SIMPLE:
-												// 直接执行控制，不启用高频任务
-												gimbalCtrlSimple(
-												jsonCmdReceive["X"],
-												jsonCmdReceive["Y"],
-												jsonCmdReceive["SPD"],
-												jsonCmdReceive["ACC"]);
+												// 更新目标位置并启用高频控制
+												targetGimbalX = jsonCmdReceive["X"];
+												targetGimbalY = jsonCmdReceive["Y"];
+												lastGimbalSpd = jsonCmdReceive["SPD"];
+												lastGimbalAcc = jsonCmdReceive["ACC"];
+												gimbalControlEnabled = true;
+												lastGimbalUpdateTime = millis();
 												break;
 	case CMD_GIMBAL_CTRL_MOVE:
 												gimbalCtrlMove(
@@ -92,6 +93,7 @@ void jsonCmdReceiveHandler(){
 												jsonCmdReceive["SY"]);break;
 	case CMD_GIMBAL_CTRL_STOP:
 												gimbalCtrlStop();
+												gimbalControlEnabled = false;
 												break;
 	case CMD_HEART_BEAT_SET:
 												changeHeartBeatDelay(

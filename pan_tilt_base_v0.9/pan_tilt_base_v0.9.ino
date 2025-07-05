@@ -62,6 +62,14 @@ StaticJsonDocument<512> jsonInfoHttp;
 // functions for esp-now.
 #include "esp_now_ctrl.h"
 
+// 添加云台控制相关全局变量 - 必须在uart_ctrl.h之前定义
+bool gimbalControlEnabled = false;
+float targetGimbalX = 0;
+float targetGimbalY = 0;
+float lastGimbalSpd = 50;
+float lastGimbalAcc = 50;
+unsigned long lastGimbalUpdateTime = 0;
+
 // functions for uart json ctrl.
 #include "uart_ctrl.h"
 
@@ -70,6 +78,7 @@ StaticJsonDocument<512> jsonInfoHttp;
 
 // Task handle for servo position monitoring
 TaskHandle_t servoPositionTaskHandle = NULL;
+TaskHandle_t gimbalControlTaskHandle = NULL;
 
 // Task function for monitoring servo positions
 void servoPositionTask(void *pvParameters) {
@@ -77,6 +86,32 @@ void servoPositionTask(void *pvParameters) {
   
   while(1) {
     RoArmM2_printAllServoPositions();
+    vTaskDelay(xDelay);
+  }
+}
+
+// 云台控制任务函数 - 高频执行
+void gimbalControlTask(void *pvParameters) {
+  const TickType_t xDelay = pdMS_TO_TICKS(20); // 50Hz = 20ms
+  
+  while(1) {
+    if (gimbalControlEnabled) {
+      // 直接控制到目标位置
+      gimbalCtrlSimple(targetGimbalX, targetGimbalY, lastGimbalSpd, lastGimbalAcc);
+      
+      // 可选：添加调试信息
+      if(InfoPrint == 1) {
+        static unsigned long lastDebugTime = 0;
+        if(millis() - lastDebugTime >= 500) { // 每500ms打印一次调试信息
+          Serial.print("Gimbal Task: X=");
+          Serial.print(targetGimbalX);
+          Serial.print(", Y=");
+          Serial.print(targetGimbalY);
+          Serial.println();
+          lastDebugTime = millis();
+        }
+      }
+    }
     vTaskDelay(xDelay);
   }
 }
@@ -239,6 +274,16 @@ void setup() {
     NULL,                 // Task parameters
     1,                    // Task priority (1 is low priority)
     &servoPositionTaskHandle  // Task handle
+  );
+
+  // Create task for gimbal control - 高优先级
+  xTaskCreate(
+    gimbalControlTask,        // Task function
+    "GimbalCtrlTask",        // Task name
+    4096,                    // Stack size (bytes)
+    NULL,                    // Task parameters
+    2,                       // Task priority (2 is higher than servo task)
+    &gimbalControlTaskHandle // Task handle
   );
 }
 
