@@ -123,14 +123,15 @@ void moduleType_RoArmM2() {
     prev_time = curr_time;
   }
 
-  RoArmM2_getPosByServoFeedback();
+  RoArmM2_getPosByServoFeedback();  // 保留 - 获取舵机位置反馈
   
-  // esp-now flow ctrl as a flow-leader.
-  switch(espNowMode) {
-  case 1: espNowGroupDevsFlowCtrl();break;
-  case 2: espNowSingleDevFlowCtrl();break;
-  }
+  // 注释掉ESP-NOW流控制
+  // switch(espNowMode) {
+  // case 1: espNowGroupDevsFlowCtrl();break;
+  // case 2: espNowSingleDevFlowCtrl();break;
+  // }
 
+  // 保留信息反馈（如果InfoPrint == 2）
   if (InfoPrint == 2) {
     RoArmM2_infoFeedback();
   }
@@ -148,8 +149,9 @@ void setup() {
   Wire.begin(S_SDA, S_SCL);
   while(!Serial) {}
 
-  ina219_init();
-  inaDataUpdate();
+  // 在setup()中注释掉
+  // ina219_init();
+  // inaDataUpdate();
 
   // set mainType & moduleType.
   // mainType: 1.WAVE ROVER, 2.UGV02, 3.UGV01
@@ -167,7 +169,7 @@ void setup() {
   delay(1200);
 
   // functions for IMU.
-  imu_init();
+  // imu_init();
 
   // functions for the leds on ugv.
   led_pin_init();
@@ -243,7 +245,7 @@ void setup() {
   screenLine_3 = "ESP-NOW init";
   oled_update();
   if(InfoPrint == 1){Serial.println("ESP-NOW init.");}
-  initEspNow();
+  // initEspNow();
 
   screenLine_3 = "PT started";
   oled_update();
@@ -253,9 +255,9 @@ void setup() {
 
   updateOledWifiInfo();
 
-  initEncoders();
-
-  pidControllerInit();
+  // 在setup()中注释掉
+  // initEncoders();
+  // pidControllerInit();
 
   screenLine_2 = String("MAC:") + macToString(thisDevMac);
   oled_update();
@@ -298,53 +300,60 @@ void printIMUData() {
     IMU_ST_SENSOR_DATA_FLOAT accelData;
     IMU_ST_SENSOR_DATA magnData;
     
-    imuDataGet(&angles, &gyroData, &accelData, &magnData);
+    // imuDataGet(&angles, &gyroData, &accelData, &magnData);
     
-    Serial.print("IMU Data - Pitch: ");
-    Serial.print(angles.pitch, 2);
-    Serial.print("° Roll: ");
-    Serial.print(angles.roll, 2);
-    Serial.print("° Yaw: ");
-    Serial.print(angles.yaw, 2);
-    Serial.println("°");
+    // Serial.print("IMU Data - Pitch: ");
+    // Serial.print(angles.pitch, 2);
+    // Serial.print("° Roll: ");
+    // Serial.print(angles.roll, 2);
+    // Serial.print("° Yaw: ");
+    // Serial.print(angles.yaw, 2);
+    // Serial.println("°");
     
     lastPrintTime = millis();
   }
 }
 
 void loop() {
-  serialCtrl();
-  server.handleClient();
+  serialCtrl();  // 保留 - 处理串口通信
+  server.handleClient();  // 保留 - 处理Web服务器
 
-  // read and compute the info of joints.
+  // 保留 - 读取和计算关节信息
   switch (moduleType) {
   case 1: moduleType_RoArmM2();break;
   case 2: moduleType_Gimbal();break;
   }
 
-  // Print IMU data
+  // 注释掉IMU数据打印
   // printIMUData();
 
-  // recv esp-now json cmd.
+  // 保留 - 处理JSON命令
   if(runNewJsonCmd) {
     jsonCmdReceiveHandler();
     jsonCmdReceive.clear();
     runNewJsonCmd = false;
   }
 
-  getLeftSpeed();
-  LeftPidControllerCompute();
-  getRightSpeed();
-  RightPidControllerCompute();
+  // 注释掉轮子控制相关
+  // getLeftSpeed();
+  // LeftPidControllerCompute();
+  // getRightSpeed();
+  // RightPidControllerCompute();
   
-  oledInfoUpdate();
-  updateIMUData();
+  // 降低OLED更新频率或注释掉
+  // oledInfoUpdate();
+  
+  // 注释掉IMU数据更新
+  // updateIMUData();
 
-  if (baseFeedbackFlow) {
-    baseInfoFeedback();
-  }
+  // 注释掉基础信息反馈
+  // if (baseFeedbackFlow) {
+  //   baseInfoFeedback();
+  // }
 
-  heartBeatCtrl();
+  // 注释掉心跳控制
+  // heartBeatCtrl();
 
+  // 保留 - 内存监控（可选）
   size_t freeHeap = esp_get_free_heap_size();
 }
