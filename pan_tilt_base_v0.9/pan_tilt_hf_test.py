@@ -39,8 +39,8 @@ class PanTiltHFTester:
         )
         self.cmd_hz = cmd_hz
         self.duration_s = duration_s
-        self.spd = 0.0 #max(0.0, min(360.0, spd))
-        self.acc = 0.0 #max(0.0, min(360.0, acc))
+        self.spd = max(0.0, min(360.0, spd))
+        self.acc = max(0.0, min(360.0, acc))
         self.x_center = x_center
         self.y_center = y_center
         self.x_amp = x_amp
