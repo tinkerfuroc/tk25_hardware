@@ -40,7 +40,7 @@ byte mainType = 1;
 // 0: [Base default] without RoArm-M2 and gimbal.
 // 1: [RoArm default] RoArm-M2 mounted on the UGV.
 // 2: [Gimbal default] Gimbal mounted on the UGV.
-byte moduleType = 0;
+byte moduleType = 2;
 
 // false: gimbal steady mode off.
 //  true: gimbal steady mode on.

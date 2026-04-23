@@ -383,24 +383,12 @@ void baseInfoFeedback(bool forceNow = false) {
 	jsonInfoHttp.clear();
 	jsonInfoHttp["T"] = FEEDBACK_BASE_INFO;
 
-	// jsonInfoHttp["L"] = speedGetA;
-	// jsonInfoHttp["R"] = speedGetB;
-
-	jsonInfoHttp["r"] = icm_roll;
-	jsonInfoHttp["p"] = icm_pitch;
-	jsonInfoHttp["y"] = icm_yaw;
-
-	// jsonInfoHttp["q0"] = qw;
-	// jsonInfoHttp["q1"] = qx;
-	// jsonInfoHttp["q2"] = qy;
-	// jsonInfoHttp["q3"] = qz;
-
-	// jsonInfoHttp["temp"] = temp.temperature;
-
-	jsonInfoHttp["v"] = loadVoltage_V;
-
 	switch(moduleType) {
 	case 1:
+		jsonInfoHttp["r"] = icm_roll;
+		jsonInfoHttp["p"] = icm_pitch;
+		jsonInfoHttp["y"] = icm_yaw;
+		jsonInfoHttp["v"] = loadVoltage_V;
 		jsonInfoHttp["x"] = lastX;
 		jsonInfoHttp["y"] = lastY;
 		jsonInfoHttp["z"] = lastZ;
@@ -414,8 +402,14 @@ void baseInfoFeedback(bool forceNow = false) {
 		jsonInfoHttp["torH"] = servoFeedback[GRIPPER_SERVO_ID - 11].load;
 		break;
 	case 2:
-		jsonInfoHttp["pan"]  = panAngleCompute(gimbalFeedback[0].pos);
-		jsonInfoHttp["tilt"] = tiltAngleCompute(gimbalFeedback[1].pos);
+		jsonInfoHttp["X"] = panAngleCompute(gimbalFeedback[0].pos);
+		jsonInfoHttp["Y"] = tiltAngleCompute(gimbalFeedback[1].pos);
+		break;
+	default:
+		jsonInfoHttp["r"] = icm_roll;
+		jsonInfoHttp["p"] = icm_pitch;
+		jsonInfoHttp["y"] = icm_yaw;
+		jsonInfoHttp["v"] = loadVoltage_V;
 		break;
 	}
 

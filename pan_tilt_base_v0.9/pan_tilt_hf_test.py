@@ -22,42 +22,84 @@ class PanTiltHFTester:
         y_center: float,
         x_amp: float,
         y_amp: float,
-        wave_hz: float,
+        x_wave_hz: float,
+        y_wave_hz: float,
+        y_phase_deg: float,
         feedback_interval_ms: int,
         request_xy_hz: float,
+        startup_delay_s: float,
     ):
-        self.ser = serial.Serial(port, baudrate=baud, timeout=0.05)
+        self.ser = serial.Serial(
+            port,
+            baudrate=baud,
+            timeout=0.05,
+            write_timeout=0.2,
+            rtscts=False,
+            dsrdtr=False,
+        )
         self.cmd_hz = cmd_hz
         self.duration_s = duration_s
-        self.spd = spd
-        self.acc = acc
+        self.spd = 0.0 #max(0.0, min(360.0, spd))
+        self.acc = 0.0 #max(0.0, min(360.0, acc))
         self.x_center = x_center
         self.y_center = y_center
         self.x_amp = x_amp
         self.y_amp = y_amp
-        self.wave_hz = wave_hz
+        self.x_wave_hz = x_wave_hz
+        self.y_wave_hz = y_wave_hz
+        self.y_phase_rad = math.radians(y_phase_deg)
         self.feedback_interval_ms = feedback_interval_ms
         self.request_xy_hz = request_xy_hz
+        self.startup_delay_s = startup_delay_s
 
         self.stop_event = threading.Event()
+        self.write_lock = threading.Lock()
         self.tx_count = 0
         self.rx_count = 0
         self.rx_parse_err = 0
         self.last_pose = {"pan": None, "tilt": None, "ts": None}
+        self.last_target = {"x": None, "y": None}
         self.pose_history = deque(maxlen=2000)
 
-    def _send(self, obj: dict):
+    def _send(self, obj: dict, flush: bool = False):
         line = json.dumps(obj, separators=(",", ":")) + "\n"
-        self.ser.write(line.encode("utf-8"))
+        payload = line.encode("utf-8")
+        with self.write_lock:
+            self.ser.write(payload)
+            if flush:
+                self.ser.flush()
+
+    def _prepare_serial(self):
+        # Opening many ESP32 USB serial ports toggles control lines and can reset
+        # the board. Give firmware time to finish setup before sending commands.
+        try:
+            self.ser.setDTR(False)
+            self.ser.setRTS(False)
+        except serial.SerialException:
+            pass
+
+        try:
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+        except serial.SerialException:
+            pass
+
+        if self.startup_delay_s > 0:
+            print(f"Waiting {self.startup_delay_s:.1f}s for controller boot...")
+            time.sleep(self.startup_delay_s)
+            try:
+                self.ser.reset_input_buffer()
+            except serial.SerialException:
+                pass
 
     def _init_device(self):
-        self._send({"T": 4, "cmd": 2})
+        self._send({"T": 4, "cmd": 2}, flush=True)
         time.sleep(0.05)
 
-        self._send({"T": 131, "cmd": 1})
+        self._send({"T": 131, "cmd": 1}, flush=True)
         time.sleep(0.02)
 
-        self._send({"T": 142, "cmd": int(self.feedback_interval_ms)})
+        self._send({"T": 142, "cmd": int(self.feedback_interval_ms)}, flush=True)
         time.sleep(0.02)
 
     def sender_loop(self):
@@ -71,12 +113,14 @@ class PanTiltHFTester:
             if elapsed > self.duration_s:
                 break
 
-            phase = 2.0 * math.pi * self.wave_hz * elapsed
-            x = self.x_center + self.x_amp * math.sin(phase)
-            y = self.y_center + self.y_amp * math.sin(phase)
+            x_phase = 2.0 * math.pi * self.x_wave_hz * elapsed
+            y_phase = 2.0 * math.pi * self.y_wave_hz * elapsed + self.y_phase_rad
+            x = self.x_center + self.x_amp * math.sin(x_phase)
+            y = self.y_center + self.y_amp * math.sin(y_phase)
 
             x = max(-180.0, min(180.0, x))
             y = max(-30.0, min(90.0, y))
+            self.last_target = {"x": x, "y": y}
 
             self._send({"T": 133, "X": round(x, 3), "Y": round(y, 3), "SPD": self.spd, "ACC": self.acc})
             self.tx_count += 1
@@ -123,8 +167,8 @@ class PanTiltHFTester:
 
             msg_type = msg.get("T")
             if msg_type == 1001:
-                pan = msg.get("pan")
-                tilt = msg.get("tilt")
+                pan = msg.get("X", msg.get("pan"))
+                tilt = msg.get("Y", msg.get("tilt"))
                 if pan is not None and tilt is not None:
                     ts = time.time()
                     self.last_pose = {"pan": pan, "tilt": tilt, "ts": ts}
@@ -149,19 +193,34 @@ class PanTiltHFTester:
 
             pan = self.last_pose["pan"]
             tilt = self.last_pose["tilt"]
+            target_x = self.last_target["x"]
+            target_y = self.last_target["y"]
             if pan is None:
                 pose_str = "pose=N/A"
             else:
                 pose_str = f"pan={pan:.2f}, tilt={tilt:.2f}"
 
+            if target_x is None:
+                target_str = "target=N/A"
+            else:
+                target_str = f"target_x={target_x:.1f}, target_y={target_y:.1f}"
+
             print(
                 f"[t={elapsed:5.1f}s] tx_total={tx:6d} tx_hz~{tx_rate:3d} | "
-                f"rx_total={rx:6d} rx_hz~{rx_rate:3d} | {pose_str}"
+                f"rx_total={rx:6d} rx_hz~{rx_rate:3d} | {target_str} | {pose_str}"
             )
 
     def run(self):
-        print("Opening serial and configuring device...")
+        print(f"Opening serial on {self.ser.port} @ {self.ser.baudrate}...")
+        self._prepare_serial()
+        print("Configuring device...")
         self._init_device()
+        print(
+            "Motion profile: "
+            f"cmd_hz={self.cmd_hz}, x_amp={self.x_amp}, y_amp={self.y_amp}, "
+            f"x_wave_hz={self.x_wave_hz}, y_wave_hz={self.y_wave_hz}, "
+            f"spd={self.spd}, acc={self.acc}"
+        )
 
         threads = [
             threading.Thread(target=self.sender_loop, daemon=True),
@@ -208,7 +267,15 @@ def build_arg_parser():
     parser.add_argument("--y-center", type=float, default=20.0)
     parser.add_argument("--x-amp", type=float, default=30.0)
     parser.add_argument("--y-amp", type=float, default=10.0)
-    parser.add_argument("--wave-hz", type=float, default=0.5, help="Target trajectory oscillation frequency")
+    parser.add_argument("--wave-hz", type=float, default=0.5, help="Shared trajectory oscillation frequency")
+    parser.add_argument("--x-wave-hz", type=float, help="Pan oscillation frequency override")
+    parser.add_argument("--y-wave-hz", type=float, help="Tilt oscillation frequency override")
+    parser.add_argument("--y-phase-deg", type=float, default=0.0, help="Tilt phase offset in degrees")
+    parser.add_argument(
+        "--vigorous",
+        action="store_true",
+        help="Use a stronger 200 Hz motion profile with larger X/Y swings",
+    )
 
     parser.add_argument("--feedback-interval-ms", type=int, default=20, help="T142 cmd field")
     parser.add_argument(
@@ -217,12 +284,34 @@ def build_arg_parser():
         default=5.0,
         help="Extra explicit T130 request rate; set 0 to disable",
     )
+    parser.add_argument(
+        "--startup-delay",
+        type=float,
+        default=4.0,
+        help="Seconds to wait after opening the serial port before sending commands",
+    )
 
     return parser
 
 
 def main():
-    args = build_arg_parser().parse_args()
+    parser = build_arg_parser()
+    args = parser.parse_args()
+
+    if args.vigorous:
+        args.cmd_hz = 200.0
+        args.spd = 320.0
+        args.acc = 120.0
+        args.x_center = 0.0
+        args.y_center = 20.0
+        args.x_amp = 110.0
+        args.y_amp = 30.0
+        args.x_wave_hz = 2.2
+        args.y_wave_hz = 3.1
+        args.y_phase_deg = 90.0
+
+    x_wave_hz = args.x_wave_hz if args.x_wave_hz is not None else args.wave_hz
+    y_wave_hz = args.y_wave_hz if args.y_wave_hz is not None else args.wave_hz
 
     tester = PanTiltHFTester(
         port=args.port,
@@ -235,9 +324,12 @@ def main():
         y_center=args.y_center,
         x_amp=args.x_amp,
         y_amp=args.y_amp,
-        wave_hz=args.wave_hz,
+        x_wave_hz=x_wave_hz,
+        y_wave_hz=y_wave_hz,
+        y_phase_deg=args.y_phase_deg,
         feedback_interval_ms=args.feedback_interval_ms,
         request_xy_hz=args.request_xy_hz,
+        startup_delay_s=args.startup_delay,
     )
     tester.run()
 
