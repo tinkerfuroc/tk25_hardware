@@ -64,6 +64,29 @@ Important:
 After boot, you can control the pan-tilt by sending JSON commands in Serial
 Monitor.
 
+## Automatic X/Y Feedback
+
+The latest firmware boots in gimbal mode by default. After the pan-tilt is
+plugged in, powered on, and finished booting, it automatically sends `T:1001`
+feedback to the computer through USB serial.
+
+The `T:1001` gimbal feedback no longer sends the module's own roll, pitch, yaw,
+or voltage fields. It only sends the current pan/tilt values as `X` and `Y`:
+
+```json
+{"T":1001,"X":0,"Y":0}
+```
+
+Field meaning:
+
+- `T`: feedback message type, always `1001`
+- `X`: current pan / X-axis angle
+- `Y`: current tilt / Y-axis angle
+
+You should see this stream in Arduino IDE Serial Monitor after uploading
+[`pan_tilt_base_v0.9.ino`](./pan_tilt_base_v0.9/pan_tilt_base_v0.9.ino) and
+opening the correct serial port at `115200` baud.
+
 Useful motion command:
 
 ```json
@@ -239,7 +262,7 @@ For normal usage after IDs and zero-state are already configured:
 
 1. Power on the pan-tilt.
 2. Open Serial Monitor at `115200` with `Newline`.
-3. Send `{"T":4,"cmd":2}`.
+3. Confirm automatic `{"T":1001,"X":...,"Y":...}` feedback is streaming.
 4. Send `{"T":133,"X":0,"Y":0,"SPD":0,"ACC":0}`.
 5. Try small test moves before high-frequency control.
 
@@ -267,6 +290,8 @@ Example:
 - `X=0, Y=0` points to the wrong physical pose:
   - repeat the zero-state procedure with `T502`
 - Feedback is missing:
-  - send `{"T":4,"cmd":2}`
-  - send `{"T":131,"cmd":1}`
-  - send `{"T":142,"cmd":20}`
+  - confirm the latest firmware has been uploaded
+  - confirm Serial Monitor baud rate is `115200`
+  - confirm the pan-tilt has finished booting
+  - optionally send `{"T":4,"cmd":2}` to force gimbal mode
+  - optionally send `{"T":131,"cmd":1}` to re-enable feedback flow
