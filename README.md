@@ -268,15 +268,64 @@ For normal usage after IDs and zero-state are already configured:
 
 ## Optional Python Test Script
 
-Once Arduino IDE control is working, you can close Serial Monitor and use:
+Once Arduino IDE control is working, close Arduino Serial Monitor and use:
 
-- [`pan_tilt_hf_test.py`](./pan_tilt_hf_test.py)
+- [`pan_tilt_hf_test.py`](./pan_tilt_base_v0.9/pan_tilt_hf_test.py)
 
-Example:
+Only one program can use the USB serial port at a time, so Arduino Serial
+Monitor must be closed before starting the Python test.
+
+### Activate the Python test
+
+1. Connect the pan-tilt over USB-C and power it on.
+2. Close Arduino IDE Serial Monitor.
+3. List serial ports:
 
 ```bash
-/opt/miniconda3/bin/python3 pan_tilt_hf_test.py --port /dev/cu.usbserial-3140 --vigorous --duration 10 --request-xy-hz 0 --startup-delay 4
+/opt/miniconda3/bin/python3 -m serial.tools.list_ports -v
 ```
+
+4. Use the detected `/dev/cu.usbserial-...` or `/dev/cu.usbmodem...` port in the
+   commands below.
+
+Safe center-position test:
+
+```bash
+/opt/miniconda3/bin/python3 ./pan_tilt_base_v0.9/pan_tilt_hf_test.py \
+  --port /dev/cu.usbserial-3140 \
+  --duration 5 \
+  --cmd-hz 5 \
+  --x-center 0 \
+  --y-center 0 \
+  --x-amp 0 \
+  --y-amp 0 \
+  --spd 0 \
+  --acc 0 \
+  --request-xy-hz 0 \
+  --startup-delay 4
+```
+
+High-frequency vigorous test:
+
+```bash
+/opt/miniconda3/bin/python3 ./pan_tilt_base_v0.9/pan_tilt_hf_test.py \
+  --port /dev/cu.usbserial-3140 \
+  --vigorous \
+  --duration 10 \
+  --request-xy-hz 0 \
+  --startup-delay 4
+```
+
+In vigorous mode, the script sends `T133` targets at about `200 Hz` with large
+X/Y swings. The startup log should show a profile similar to:
+
+```text
+Motion profile: cmd_hz=200.0, x_amp=110.0, y_amp=30.0, x_wave_hz=2.2, y_wave_hz=3.1, spd=320.0, acc=120.0
+```
+
+If `serial.tools.list_ports` fails with `ModuleNotFoundError: No module named
+'serial'`, use the Conda Python shown above or install `pyserial` into the
+Python interpreter you are using.
 
 ## Troubleshooting
 
